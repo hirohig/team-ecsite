@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8" />
+<title>Insert title here</title>
+</head>
+<body>
+
+<th:block th:fragment="pageHeader">
+	<script src="http://code.jquery.com/jquery-3.4.1.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+	<link rel="stylesheet"
+			href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+	<script src="/js/util/stringUtil.js" th:src="@{/js/util/stringUtil.js}"></script>
+	<script src="/js/util/validator.js" th:src="@{/js/util/validator.js}"></script>
+	<script src="/js/dialogConfig.js" th:src="@{/js/dialogConfig.js}"></script>
+	<script th:inline="javascript">
+	/*<![CDATA[*/
+		$(() => {
+			$('#loginError').dialog(dialogConfig.loginError);
+			
+			$('button#login').on('click', () => {
+				let jsonString = {
+						'userName': $('div.loginArea input[name=userName]').val(),
+						'password': $('div.loginArea input[name=password]').val()
+				};
+				$.ajax({
+					type: 'POST',
+					url: '/mushrooms/auth/login',
+					data: JSON.stringify(jsonString),
+					contentType: 'application/json',
+					datatype: 'json',
+					scriptCharset: 'utf-8'
+				})
+				.then((result) => {
+					let user = JSON.parse(result);
+					if (isEmpty(user)) {  //DBにユーザーが存在しないため、ログインエラーダイアログを表示する。
+						$('#hiddenUserName').val('');
+						$('#loginError').dialog('open');
+					} else { //DBにユーザーが存在するため、ユーザー名を不可視の状態で保持し、ヘッダーの内容をログイン済時に変更する。
+						$('#hiddenUserName').val(user['userName']);
+						login(user);
+					}
+				}, () => {
+					alert('Error: ajax connection failed.');
+				});
+			});
+			
+			$('button#logout').on('click', () => {
+				$.ajax({
+					type: 'POST',
+					url: '/mushrooms/auth/logout',
+					datatype: 'json',
+					scriptCharset: 'utf-8'
+				})
+				.then((result) => { //保持していたユーザー名を空にし、ヘッダーの内容を未ログイン時に変更する。
+					$('#hiddenUserName').val('');
+					logout();
+					alert('ログアウトしました。');
+					location.replace('/mushrooms/'); //アラートのOKボタンを押すと、トップ画面に遷移する。
+				}, () => {
+					alert('Error: ajax connection failed.');
+				});
+			});
+
+		});
+		
+		//ログイン時にヘッダーの表示をログイン状態に変更するメソッド
+		function login(user) {
+			let userName = user['userName'];
+			$('.welcomeMsg').text(`ようこそ！ ${userName} さん`);
+			if (isEmpty($('button#login').prop('class'))) {
+				$('button#login').addClass('hidden');
+				$('button#logout').removeClass('hidden');
+			}
+			
+			$('#mypageMenu').removeClass('hidden');
+			
+			$('div.loginArea input[name=userName]').val('');
+			$('div.loginArea input[name=password]').val('');
+		}
+		
+		//ログアウト時にヘッダーの表示をログアウト状態に変更するメソッド
+		function logout() {
+			$('.welcomeMsg').text(`ようこそ！ ゲスト さん`);
+			if (isEmpty($('button#logout').prop('class'))) {
+				$('button#logout').addClass('hidden');
+				$('button#login').removeClass('hidden');
+			} 
+			if (isEmpty($('#mypageMenu').prop('class'))) {
+				$('#mypageMenu').addClass('hidden');
+			}
+			
+			$('div.loginArea input[name=userName]').val('');
+			$('div.loginArea input[name=password]').val('');
+		}
+	/*]]>*/
+	</script>
+	<div class="headerTop">
+		<h1 class="logo"><a href="/mushrooms/"><span class="sub-title">チケット販売の</span><br><span class="main-title">MushROOMs</span></a></h1>
+		<span class="signup">
+			<a href="/mushrooms/user/" th:href="@{/mushrooms/user/}">
+			新規ユーザ登録はこちら
+			</a>
+		</span>
+		<span class="welcomeMsg" 
+				th:text="'ようこそ！ ' + ${loginSession == null || loginSession.getUserName()  == null ? 'ゲスト' : loginSession.getUserName() } +' さん'"></span>
+	</div>
+	 
+	<nav>
+		<div class="loginArea">
+			<input type="text" name="userName" />
+			<input type="password" name="password" />
+			<input type="hidden" id="hiddenUserName" value="" />
+		    <button id="login" th:class="${loginSession == null || loginSession.getUserName() == null ? '' : 'hidden'}">ログイン</button>
+			<button id="logout" th:class="${loginSession == null || loginSession.getUserName() == null ? 'hidden': ''}">ログアウト</button>
+		</div>
+		<ul class="menu">
+			<li id="cartMenu"><a href="/mushrooms/cart/">カート</a></li>
+			<li id="mypageMenu" th:class="${loginSession == null || loginSession.getUserName() == null  ? 'hidden' : ''}">
+				<a href="/mushrooms/mypage/">マイページ</a>
+			</li>
+		</ul>
+	</nav>
+		<!-- Modal Dialog (ログインエラー) -->
+	<div th:insert="fragments/dialog_login_error::dialogLoginError"></div>
+</th:block>
+
+</body>
+</html>
